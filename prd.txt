@@ -1,0 +1,444 @@
+================================================================
+  RESPONSE-PORT — PRODUCT REQUIREMENTS DOCUMENT (PRD)
+  Last Updated: 2026-05-03
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ PROJECT OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Response-Port is an admin-controlled dynamic daily statistic
+analysis and case management system designed for law enforcement
+use. The IT-admin creates flexible form sessions with customisable
+fields; these sessions are automatically published to station-level
+and CCRB-level users for daily data entry. Alongside the dynamic
+session system, the platform includes a fixed Mandatory Daily
+Reporting module covering three core categories:
+
+  • Charge Sheet (60/90-day tracking)
+  • Missing Cases
+  • Road Accident Data
+
+All inputs are stored in a centralised SQLite database (via
+Sequelize ORM) and surfaced through an admin dashboard that
+provides real-time monitoring, per-user submission tracking,
+audit trails, and analytics.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 1. OVERALL ARCHITECTURE (2-PORTAL SYSTEM)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────────────────────────────────────┐
+  │           React + Vite Frontend             │
+  │  /station  │  /ccrb  │  /admin  │  /login  │
+  └───────────────────┬─────────────────────────┘
+                      │  REST API (Axios)
+  ┌───────────────────▼─────────────────────────┐
+  │         Express.js Backend (Port 5000)       │
+  │   /api/auth  /api/cases  /api/admin          │
+  │   /api/mandatory                             │
+  └───────────────────┬─────────────────────────┘
+                      │  Sequelize ORM
+  ┌───────────────────▼─────────────────────────┐
+  │           SQLite  (database.sqlite)          │
+  │   Users │ Cases │ FormSessions │ Schemas     │
+  │   MandatoryForms │ AuditLogs                │
+  └─────────────────────────────────────────────┘
+
+Both portals share the same backend with role-based access
+control (RBAC) enforced via JWT middleware.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 2. USER ROLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Role       Route       Description
+  ─────────  ──────────  ─────────────────────────────────────
+  admin      /admin      Full system control, schema builder,
+                         approvals, analytics, user management
+  station    /station    Daily data entry + case submission
+  ccrb       /ccrb       Same UserDashboard as station, scoped
+                         to CCRB-specific reporting duties
+
+  Role assignment: admin seeds initial admin account via
+  seedAdmin.js; subsequent users register with default role
+  'station'; admin can promote/demote roles via the User
+  Management panel.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 3. USER PORTAL  (/station  and  /ccrb)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ 3.1  Pages Built
+ ─────────────────
+  Page              File                 Status
+  ──────────────    ───────────────────  ──────
+  Home / Landing    pages/Home.jsx       ✅ Built
+  Login             pages/Login.jsx      ✅ Built
+  Register          pages/Register.jsx   ✅ Built
+  User Dashboard    pages/UserDashboard  ✅ Built
+
+ 3.2  UserDashboard — Sections
+ ──────────────────────────────
+  a) Mandatory Daily Report
+     • Auto-loads today's record from /api/mandatory/today
+     • Three expandable sub-forms (Charge Sheet, Missing Cases,
+       Road Accident), each with structured numeric/text fields
+     • Upsert on save — one record per user per calendar day
+     • Displays submission status (Submitted / Not Submitted)
+
+  b) Active Sessions (Dynamic Forms)
+     • Lists all active FormSessions from /api/cases/sessions
+     • Shows completion status per session (Submitted / Pending)
+     • Clicking a session opens a dynamic form generated from
+       the session's 'fields' JSON array
+     • Submission creates a Case record; duplicate guard prevents
+       re-submission for the same session
+
+  c) My Cases Table
+     • Paginated table of all own Case submissions
+     • Columns: Session, Status (pending/approved/rejected),
+       Submitted Date
+     • Expandable row to view submitted field data
+
+  d) My Mandatory Reports Table
+     • Paginated history of all MandatoryForm submissions
+     • Columns: Date, Charge Sheet summary, Missing Cases,
+       Road Accident data
+
+ 3.3  Permissions
+ ─────────────────
+  ✅  Submit dynamic case forms
+  ✅  View own cases only
+  ✅  Fill and update today's mandatory daily report
+  ✅  View own mandatory report history
+  ❌  Cannot approve / reject
+  ❌  Cannot access /admin routes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 4. ADMIN PORTAL  (/admin)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ 4.1  Pages Built
+ ─────────────────
+  Page              File                   Status
+  ──────────────    ─────────────────────  ──────
+  Admin Dashboard   pages/AdminDashboard   ✅ Built
+
+ 4.2  AdminDashboard — Tabs / Sections
+ ──────────────────────────────────────
+  Tab                    Description
+  ─────────────────────  ──────────────────────────────────────
+  Overview / Analytics   Aggregate counts: total cases, pending,
+                         approved, rejected; mandatory report
+                         submission overview per user
+  Approval Panel         List all pending Cases; Approve/Reject
+                         with optional remarks; triggers AuditLog
+  Case Management        View ALL cases across all users;
+                         filter by status, session, user
+  Session Builder        Create FormSessions (sessionNo, title,
+                         dynamic fields array); activate/deactivate
+  Schema Builder         Add/Edit/Delete global FormSchema fields
+                         (text, dropdown, date, file, textarea,
+                         number); used as shared field definitions
+  Mandatory Reports      Admin view of ALL MandatoryForm records
+                         across all stations; grouped by date/user
+  Audit Logs             Last 100 AuditLog entries with user name,
+                         action, timestamp, and case reference
+  User Management        List all users; update role
+                         (admin / station / ccrb) per user
+
+ 4.3  Permissions
+ ─────────────────
+  ✅  Full read access to all data
+  ✅  Approve / Reject cases with remarks
+  ✅  Create & manage FormSessions
+  ✅  Build & modify global FormSchema
+  ✅  View all mandatory daily reports
+  ✅  Access audit log
+  ✅  Promote / demote user roles
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 5. DATABASE SCHEMA (SQLite via Sequelize)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: Users
+  ─────────────────────────────────────────────────
+  _id         UUID (PK)
+  name        STRING  NOT NULL
+  email       STRING  UNIQUE NOT NULL
+  password    STRING  (bcrypt hash)
+  phone       STRING  (optional)
+  role        ENUM('admin', 'station', 'ccrb')
+              DEFAULT 'station'
+  createdAt / updatedAt
+
+  Table: FormSessions
+  ─────────────────────────────────────────────────
+  _id         UUID (PK)
+  sessionNo   STRING  UNIQUE NOT NULL
+  title       STRING  NOT NULL
+  isActive    BOOLEAN DEFAULT true
+  fields      JSON    (array of field definition objects)
+  createdBy   FK → Users._id
+  createdAt / updatedAt
+
+  Table: Cases
+  ─────────────────────────────────────────────────
+  _id         UUID (PK)
+  status      ENUM('pending','approved','rejected')
+              DEFAULT 'pending'
+  data        JSON    NOT NULL  (dynamic field values)
+  files       JSON    DEFAULT []
+  remarks     TEXT    (admin remarks on approve/reject)
+  userId      FK → Users._id
+  sessionId   FK → FormSessions._id
+  createdAt / updatedAt
+  Indexes: userId, sessionId, status
+
+  Table: FormSchema
+  ─────────────────────────────────────────────────
+  _id         UUID (PK)
+  fieldName   STRING  UNIQUE NOT NULL
+  fieldType   ENUM('text','dropdown','date','file',
+              'textarea','number')
+  label       STRING  NOT NULL
+  options     JSON    DEFAULT []  (for dropdowns)
+  isRequired  BOOLEAN DEFAULT false
+  createdAt / updatedAt
+
+  Table: MandatoryForms
+  ─────────────────────────────────────────────────
+  _id           UUID (PK)
+  date          DATEONLY  NOT NULL
+  chargeSheet   JSON  DEFAULT {}
+  missingCases  JSON  DEFAULT {}
+  roadAccident  JSON  DEFAULT {}
+  userId        FK → Users._id
+  createdAt / updatedAt
+  Unique Constraint: (userId, date)
+
+  Table: AuditLogs
+  ─────────────────────────────────────────────────
+  _id         UUID (PK)
+  action      STRING  NOT NULL
+              (e.g. CASE_SUBMITTED, CASE_APPROVED,
+               CASE_REJECTED)
+  details     JSON    (additional context / remarks)
+  userId      FK → Users._id
+  caseId      FK → Cases._id
+  createdAt / updatedAt
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 6. API REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Auth  (/api/auth)
+  ──────────────────────────────────────────────────────────
+  POST  /register           Register user (name, email, pw, role)
+  POST  /login              Login → returns JWT + user object
+
+  Cases  (/api/cases)                     [JWT required]
+  ──────────────────────────────────────────────────────────
+  GET   /sessions           Active sessions + user completion status
+  POST  /sessions           Create a new FormSession
+  GET   /hosted-submissions Sessions created by user + their cases
+  POST  /                   Submit a new Case for a session
+  GET   /                   Get all own Cases
+  GET   /:id                Get a single own Case by ID
+
+  Admin  (/api/admin)                [JWT + admin role required]
+  ──────────────────────────────────────────────────────────
+  GET   /sessions           All FormSessions
+  POST  /sessions           Create FormSession
+  DELETE /sessions/:id      Delete FormSession
+  GET   /cases              All Cases (with user + session info)
+  PUT   /cases/:id/status   Approve / Reject Case + remarks
+  GET   /schema             All FormSchema fields
+  POST  /schema             Create or update a schema field
+  DELETE /schema/:id        Delete a schema field
+  GET   /audit-logs         Last 100 AuditLog entries
+  GET   /users              All users (passwords excluded)
+  PUT   /users/:id/role     Update a user's role
+
+  Mandatory  (/api/mandatory)             [JWT required]
+  ──────────────────────────────────────────────────────────
+  GET   /today              Get current user's mandatory form
+                            for today (empty object if none)
+  POST  /today              Create or update today's mandatory form
+  GET   /all                All mandatory forms — all users
+                            [admin access]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 7. TECH STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Layer       Technology           Version
+  ──────────  ───────────────────  ─────────────
+  Frontend    React                ^19.2.4
+              Vite                 ^8.0.1
+              React Router DOM     ^7.13.2
+              Axios                ^1.13.6
+              Lucide React         ^1.7.0
+              jwt-decode           ^4.0.0
+  Backend     Node.js / Express    ^5.2.1
+              Sequelize ORM        ^6.37.8
+              SQLite3              ^6.0.1  (local)
+              pg / pg-hstore       ^8.20.0 (prod-ready)
+              bcryptjs             ^3.0.3
+              jsonwebtoken         ^9.0.3
+              multer               ^2.1.1  (file upload)
+              dotenv               ^17.3.1
+  Database    SQLite               (development)
+              PostgreSQL           (production target)
+  Auth        JWT (1-day expiry)   stored in localStorage
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 8. COMPLETE WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Dynamic Case Flow
+  ─────────────────
+  Step 1  Admin creates a FormSession with custom field
+          definitions via the Session Builder tab.
+  Step 2  Session becomes visible to all station/CCRB users
+          on their dashboard under "Active Sessions".
+  Step 3  User fills the dynamically generated form and submits.
+          Case saved as 'pending'; AuditLog entry created.
+  Step 4  Admin sees the submission in the Approval Panel.
+          Admin approves or rejects with optional remarks.
+          AuditLog entry created.
+  Step 5  User sees updated status on their Cases table.
+
+  Mandatory Daily Report Flow
+  ────────────────────────────
+  Step 1  User opens "Mandatory Daily Report" in their dashboard.
+  Step 2  System fetches today's record (GET /api/mandatory/today).
+  Step 3  User fills in Charge Sheet, Missing Cases, Road Accident
+          sub-forms and clicks Save.
+  Step 4  Record is upserted for (userId, today's date).
+  Step 5  Admin views consolidated mandatory reports for all
+          stations via the Mandatory Reports admin tab.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 9. AUTH & SECURITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  • Passwords hashed with bcryptjs (salt rounds: 10)
+  • JWT signed with JWT_SECRET (env var), expires in 1 day
+  • authMiddleware validates JWT on all protected routes
+  • adminMiddleware blocks non-admin requests on admin routes
+  • CORS enabled globally (configurable for production origin)
+  • Role enum enforced at DB level (admin / station / ccrb)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 10. PROJECT STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Response-Port/
+  ├── backend/
+  │   ├── config/
+  │   │   └── database.js          Sequelize + SQLite setup
+  │   ├── middleware/
+  │   │   └── authMiddleware.js    JWT auth + admin guard
+  │   ├── models/
+  │   │   ├── User.js
+  │   │   ├── Case.js
+  │   │   ├── FormSession.js
+  │   │   ├── Schema.js
+  │   │   ├── MandatoryForm.js
+  │   │   └── AuditLog.js
+  │   ├── routes/
+  │   │   ├── auth.js
+  │   │   ├── cases.js
+  │   │   ├── admin.js
+  │   │   └── mandatory.js
+  │   ├── seed.js                  Seeds sample FormSessions
+  │   ├── seedAdmin.js             Seeds admin user account
+  │   ├── database.sqlite          Local SQLite DB file
+  │   ├── index.js                 Express app entry point
+  │   ├── .env                     PORT, JWT_SECRET, DATABASE_URL
+  │   └── package.json
+  │
+  └── frontend/
+      ├── src/
+      │   ├── context/
+      │   │   └── AuthContext.jsx  JWT decode + user state
+      │   ├── components/
+      │   │   └── Logo.jsx
+      │   ├── pages/
+      │   │   ├── Home.jsx         Landing page
+      │   │   ├── Login.jsx
+      │   │   ├── Register.jsx
+      │   │   ├── UserDashboard.jsx
+      │   │   └── AdminDashboard.jsx
+      │   ├── App.jsx              Router + ProtectedRoute
+      │   ├── index.css            Global styles
+      │   └── main.jsx
+      └── package.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 11. ENVIRONMENT VARIABLES  (.env)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PORT=5000
+  DATABASE_URL=postgres://postgres:postgres@localhost:5432/acp_db
+  JWT_SECRET=supersecret123
+
+  Note: The app currently boots with SQLite (database.sqlite)
+  regardless of DATABASE_URL; PostgreSQL migration is ready
+  via the pg/pg-hstore dependencies and can be activated by
+  updating config/database.js to use DATABASE_URL.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 12. WHAT HAS BEEN BUILT  (STATUS SUMMARY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Feature                            Status
+  ─────────────────────────────────  ──────────────────────
+  User registration & login (JWT)    ✅ Complete
+  Role-based access control          ✅ Complete
+  Landing / Home page                ✅ Complete
+  User Dashboard                     ✅ Complete
+  Mandatory Daily Report (station)   ✅ Complete
+  Dynamic Session Forms (user)       ✅ Complete
+  Admin Dashboard                    ✅ Complete
+  Case Approval Panel                ✅ Complete
+  Dynamic Schema Builder             ✅ Complete
+  Session Builder                    ✅ Complete
+  Mandatory Reports (admin view)     ✅ Complete
+  Audit Log viewer                   ✅ Complete
+  User Management (role changes)     ✅ Complete
+  SQLite DB (Sequelize ORM)          ✅ Complete
+  Seed scripts (admin + sessions)    ✅ Complete
+  PostgreSQL migration               🔄 Dependencies ready,
+                                        config pending
+  File upload (multer)               🔄 Dependency installed,
+                                        UI integration pending
+  PDF / Excel export                 ❌ Not yet implemented
+  Email / SMS notifications          ❌ Not yet implemented
+  Performance % analytics            ❌ Not yet implemented
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 13. RUNNING THE PROJECT LOCALLY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Backend
+  ───────
+    cd backend
+    npm install
+    node seedAdmin.js      # create admin user (first run only)
+    node seed.js           # seed sample sessions (optional)
+    node index.js          # or: npx nodemon index.js
+
+  Frontend
+  ────────
+    cd frontend
+    npm install
+    npm run dev            # starts on http://localhost:5173
+
+  Default Admin Credentials (from seedAdmin.js):
+    Email:    admin@responseport.com
+    Password: admin123
+
+================================================================
