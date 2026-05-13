@@ -74,9 +74,9 @@ const AdminHome = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const [casesRes, mandatoryRes, sessionsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/admin/cases', config),
-        axios.get('http://localhost:5000/api/mandatory/all', config).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/admin/sessions', config).catch(() => ({ data: [] }))
+        axios.get('/api/admin/cases', config),
+        axios.get('/api/mandatory/all', config).catch(() => ({ data: [] })),
+        axios.get('/api/admin/sessions', config).catch(() => ({ data: [] }))
       ]);
       setCases(casesRes.data);
       setMandatoryForms(mandatoryRes.data);

@@ -38,11 +38,11 @@ const AdminDashboard = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const [schemaRes, casesRes, sessionsRes, usersRes, mandatoryRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/admin/schema', config),
-        axios.get('http://localhost:5000/api/admin/cases', config),
-        axios.get('http://localhost:5000/api/admin/sessions', config),
-        axios.get('http://localhost:5000/api/admin/users', config).catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/mandatory/all', config).catch(() => ({ data: [] }))
+        axios.get('/api/admin/schema', config),
+        axios.get('/api/admin/cases', config),
+        axios.get('/api/admin/sessions', config),
+        axios.get('/api/admin/users', config).catch(() => ({ data: [] })),
+        axios.get('/api/mandatory/all', config).catch(() => ({ data: [] }))
       ]);
       console.log('--- ADMIN FETCH DATA ---');
       console.log('Sessions Fetched:', sessionsRes.data);
@@ -62,7 +62,7 @@ const AdminDashboard = () => {
   const handleDeleteSession = async (id) => {
     if (!window.confirm('Delete this form?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/admin/sessions/${id}`, {
+      await axios.delete(`/api/admin/sessions/${id}`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       fetchData();
@@ -118,7 +118,7 @@ const AdminDashboard = () => {
       console.log('--- WIZARD PUBLISH ---');
       console.log('Payload:', payload);
       
-      await axios.post('http://localhost:5000/api/admin/sessions', payload, {
+      await axios.post('/api/admin/sessions', payload, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setWizardStep(3);
@@ -137,7 +137,7 @@ const AdminDashboard = () => {
   // eslint-disable-next-line no-unused-vars
   const handleUpdateStatus = async (id, status) => {
     try {
-      await axios.put(`http://localhost:5000/api/admin/cases/${id}/status`, { status }, {
+      await axios.put(`/api/admin/cases/${id}/status`, { status }, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       fetchData();
@@ -150,7 +150,7 @@ const AdminDashboard = () => {
 
   const handleUpdateUserRole = async (userId, newRole) => {
     try {
-      await axios.put(`http://localhost:5000/api/admin/users/${userId}/role`, { role: newRole }, {
+      await axios.put(`/api/admin/users/${userId}/role`, { role: newRole }, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       fetchData();
@@ -696,7 +696,7 @@ const AdminDashboard = () => {
                               const fd = new FormData();
                               fd.append('image', file);
                               try {
-                                const res = await axios.post('http://localhost:5000/api/upload', fd, {
+                                const res = await axios.post('/api/upload', fd, {
                                   headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' }
                                 });
                                 handleWizardFieldChange(i, 'labelImage', res.data.url);

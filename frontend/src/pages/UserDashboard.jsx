@@ -86,12 +86,12 @@ const UserDashboard = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const [sessionsRes, hostedRes, submissionsRes, notificationsRes, stationsRes, profileRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/cases/sessions', config).catch(e => ({ data: [] })),
-        axios.get('http://localhost:5000/api/cases/hosted-submissions', config).catch(e => ({ data: { sessions: [], cases: [] } })),
-        axios.get('http://localhost:5000/api/cases', config).catch(e => ({ data: [] })),
-        axios.get('http://localhost:5000/api/cases/notifications', config).catch(e => ({ data: [] })),
-        axios.get('http://localhost:5000/api/admin/stations', config).catch(e => ({ data: [] })),
-        axios.get('http://localhost:5000/api/auth/me', config).catch(e => ({ data: null }))
+        axios.get('/api/cases/sessions', config).catch(e => ({ data: [] })),
+        axios.get('/api/cases/hosted-submissions', config).catch(e => ({ data: { sessions: [], cases: [] } })),
+        axios.get('/api/cases', config).catch(e => ({ data: [] })),
+        axios.get('/api/cases/notifications', config).catch(e => ({ data: [] })),
+        axios.get('/api/admin/stations', config).catch(e => ({ data: [] })),
+        axios.get('/api/auth/me', config).catch(e => ({ data: null }))
       ]);
 
       setSessions(sessionsRes.data || []);
@@ -132,7 +132,7 @@ const UserDashboard = () => {
     
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.post('http://localhost:5000/api/cases', {
+      await axios.post('/api/cases', {
         sessionId: selectedSession._id,
         data: responseData
       }, config);
@@ -153,7 +153,7 @@ const UserDashboard = () => {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const sessionNo = wizardData.title.toUpperCase().replace(/\s+/g, '-').substring(0, 10) + '-' + Math.floor(Math.random() * 1000);
       
-      await axios.post('http://localhost:5000/api/cases/sessions', {
+      await axios.post('/api/cases/sessions', {
         ...wizardData,
         sessionNo,
         fields: wizardData.fields.map(f => ({
@@ -176,7 +176,7 @@ const UserDashboard = () => {
     e.preventDefault();
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.post('http://localhost:5000/api/mandatory/today', {
+      await axios.post('/api/mandatory/today', {
         ...mandatoryData,
         reportingSession: mandatorySession
       }, config);
